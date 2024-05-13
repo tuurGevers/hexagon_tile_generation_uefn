@@ -18,8 +18,18 @@ Tile := class:
     var Type:string = "Default"
     var AdditionalPropAsset:?creative_prop_asset = false
     var AdditionalProp:?creative_prop = false
-
+    var pResource:?Resource = false
     Parent:Tiles
+
+    CreateOrRespawnResource(): void =
+        if(resource:= pResource? ):
+            resource.Spawn()
+        else:
+            R:=Resource{Main:=Parent, tile:=Self, Asset:= Parent.TreePropAsset, HitPlayer:=Parent.AudioPlayerTreeHit, BreakPlayer:=Parent.AudioPlayerTreeBreak, BreakNS:=Parent.TreeBreakNs}
+            R.Spawn()
+            set pResource = option{R}
+            
+
     InitSpecial(basePosition: vector3, moves: tuple(int, int,string, creative_prop_asset)): void =
         xMove := moves(0)
         yMove := moves(1)
