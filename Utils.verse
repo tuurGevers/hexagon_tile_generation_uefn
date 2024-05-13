@@ -45,6 +45,15 @@ CalculatePointNonPlayer(Transform:transform, DistanceAmp:float, Direction:string
 (V:vector3).Print():void=
     Print("X:={V.X}, Y:={V.Y}, Z:={V.Z} ")
 
+(V:vector3).Times(Scale:float)<transacts>:vector3=
+    return vector3{X:=V.X*Scale, Y:=V.Y*Scale, Z:=V.Z*Scale}
+(V:vector3).Times(Scale:int)<transacts>:vector3=
+    return vector3{X:=V.X*Scale, Y:=V.Y*Scale, Z:=V.Z*Scale}
+(V:vector3).Add(Scale:float)<transacts>:vector3=
+    return vector3{X:=V.X+Scale, Y:=V.Y+Scale, Z:=V.Z+Scale}
+(V:vector3).Add(V2:vector3)<transacts>:vector3=
+    return vector3{X:=V.X+V2.X, Y:=V.Y+V2.Y, Z:=V.Z+V2.Z}
+
 # Converts an array of integers to a string
 (Arr: []int).ToString<public>():string=
     var ReturnString : string = ""

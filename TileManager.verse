@@ -15,10 +15,27 @@ Tile := class:
     var InActiveProp : creative_prop = creative_prop{}
     var Position:vector3 
     var Listenable: ?cancelable = false
+    var Type:string = "Default"
+
     Parent:Tiles
-    Init(TileArray: []Tile, ?isActiveState: logic = false): void =
+    InitSpecial(basePosition: vector3, moves: tuple(int, int,string)): void =
+        xMove := moves(0)
+        yMove := moves(1)
+        newPosition := Self.CalculatePositionFromBase(basePosition, xMove, yMove)
+        set Self.Position = newPosition
+        Self.Init(Parent.TileArr, ?isActiveState:=false, ?InitType:=moves(2))
+
+    CalculatePositionFromBase(basePosition: vector3, xMove: int, yMove: int): vector3 =
+        var finalPosition:vector3 = basePosition
+        var xOffset:vector3 = vector3{X:=1000.0, Y:=0.0, Z:=0.0}  # Adjust this value based on actual grid size and orientation
+        var yOffset:vector3 = vector3{X:=500.0, Y:=850.0, Z:=0.0}  # This is typical for hex grids
+        set finalPosition= finalPosition.Add(xOffset.Times(xMove).Add(yOffset.Times(yMove)))
+        return finalPosition
+
+    Init(TileArray: []Tile, ?isActiveState: logic = false, ?InitType:string="Default"): void =
         Self.CalculateNeighborPositions()
         set isActive = isActiveState
+        set Type = InitType
         if (isActiveState = true):
             set Prop = SpawnTarget(Position, TilePropAsset)  # Spawn active tile immediately if active
             set Position = Prop.GetTransform().Translation  # Get the exact position after spawning
@@ -113,6 +130,11 @@ Tiles := class(creative_device):
     @editable DebugCube:creative_prop = creative_prop{}
     @editable DebugCubeAsset:creative_prop_asset = DefaultCreativePropAsset
     @editable TransitionAnim: cinematic_sequence_device = cinematic_sequence_device{}
+    @editable TestInActive: creative_prop_asset = DefaultCreativePropAsset
+    @editable TestActive: creative_prop_asset = DefaultCreativePropAsset
+
+
+    PremadeTiles:[]tuple(int,int,string) = array{(4,4,"Test")}
 
     var TileArr: []Tile = array{}
     var CurrentTile: ?Tile = false
@@ -126,11 +148,13 @@ Tiles := class(creative_device):
             if ( neighborTile.isActive = false):
                 neighborTile.Activate()
 
-        for(LocalTIle:TileArr):
+        for(move:PremadeTiles):
+            Props:=GetPropsByType(move(2))
+            PremadeTile:= Tile{InactiveTileAsset := Props(1), TilePropAsset:=Props(0), Position:=vector3{X:=0.0, Y:=0.0, Z:=0.0}, Parent:=Self}
+            PremadeTile.InitSpecial(vector3{X:=0.0, Y:=0.0, Z:=0.0}, move)
+            set TileArr += array{PremadeTile}
+            
         
-            # for(I:=0..LocalTIle.Neighbors.Length-1):
-            #     SpawnTarget(vector3{X:=LocalTIle.Position.X,Y:=LocalTIle.Position.Y,Z:=LocalTIle.Position.Z+800.0+I*100.0}, DebugCubeAsset)
-
         if(Player:=GetPlayspace().GetPlayers()[0]):
             spawn. DelayedActivate()
             loop:
@@ -140,6 +164,10 @@ Tiles := class(creative_device):
                     DebugCube.MoveTo(vector3{X:=LocalTile.Position.X, Y:=LocalTile.Position.Y, Z:= LocalTile.Position.Z+800.0}, IdentityRotation(), 0.1)
 
 
+    GetPropsByType(Type:string)<transacts>: tuple(creative_prop_asset,creative_prop_asset)=
+        case(Type):
+            "Test" => (TestActive, TestInActive)
+            _=>(ActiveTile, InActiveTile)
     
     GetCurrentTile(Player:agent, ACurrentTile:Tile)<transacts> : Tile=
         var closestTile: Tile = ACurrentTile
