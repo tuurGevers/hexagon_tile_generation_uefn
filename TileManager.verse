@@ -16,10 +16,12 @@ Tiles := class(creative_device):
     @editable TestActive: creative_prop_asset = DefaultCreativePropAsset
 
     @editable InteractInput: input_trigger_device = input_trigger_device{}
+    @editable RecordPlayerAsset: creative_prop_asset = DefaultCreativePropAsset
 
+    @editable AudioPlayers: []audio_player_device = array{}
     
     basePosition:vector3= vector3{X:=0.0, Y:=0.0, Z:=0.0}
-    PremadeTiles:[]tuple(int,int,string) = array{(4,4,"Test")}
+    var PremadeTiles:[]tuple(int,int,string, creative_prop_asset) = array{}
     Zones:[]tuple(tuple(int, int), tuple(int,int), string) = {
         ((-20, -10), (-11, 10), "Desert"),
         ((-10,-10), (10, 10), "Forest")
@@ -32,6 +34,9 @@ Tiles := class(creative_device):
    
     OnBegin<override>() <suspends>: void =
         InteractInput.PressedEvent.Subscribe(ExecuteSpecialTileFunction)
+        set PremadeTiles = array{
+            (4,4,"Test",RecordPlayerAsset)
+        }
         var newTile: Tile = Tile{
             InactiveTileAsset := InActiveTile,
             TilePropAsset := ActiveTile,
@@ -125,7 +130,15 @@ Tiles := class(creative_device):
                 "Test" => spawn. TestFunction(Player, ACurrentTile)
                 _=>{}
 
+    var AudioIndex:int = -1
     TestFunction(Player:agent, tile:Tile)<suspends>:void=
+        if(AudioIndex>=0, AudioPlayer:=AudioPlayers[AudioIndex]):
+            AudioPlayer.Stop()
+        set AudioIndex += 1
+        if(AudioPlayer:=AudioPlayers[AudioIndex]):
+            AudioPlayer.Play()
+        else:
+            set AudioIndex = -1
         Print("todo")
 
 

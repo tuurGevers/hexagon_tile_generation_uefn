@@ -16,13 +16,16 @@ Tile := class:
     var Position:vector3 
     var Listenable: ?cancelable = false
     var Type:string = "Default"
+    var AdditionalPropAsset:?creative_prop_asset = false
+    var AdditionalProp:?creative_prop = false
 
     Parent:Tiles
-    InitSpecial(basePosition: vector3, moves: tuple(int, int,string)): void =
+    InitSpecial(basePosition: vector3, moves: tuple(int, int,string, creative_prop_asset)): void =
         xMove := moves(0)
         yMove := moves(1)
         newPosition := Self.CalculatePositionFromBase(basePosition, xMove, yMove)
         set Self.Position = newPosition
+        set Self.AdditionalPropAsset = option{moves(3)}
         Self.Init(Parent.TileArr, ?isActiveState:=false, ?InitType:=moves(2))
 
     CalculatePositionFromBase(basePosition: vector3, xMove: int, yMove: int): vector3 =
@@ -57,6 +60,9 @@ Tile := class:
         else:
             set InActiveProp = SpawnTarget(Position, InactiveTileAsset)
             set Position = InActiveProp.GetTransform().Translation
+            if(ActualAdditionalProp:=AdditionalPropAsset?):
+                LocalPorp:= SpawnTarget(vector3{X:=Position.X, Y:=Position.Y, Z:=Position.Z+500.0}, ActualAdditionalProp)
+                set AdditionalProp = option{LocalPorp}
 
         Self.UpdateNeighbors()
 
