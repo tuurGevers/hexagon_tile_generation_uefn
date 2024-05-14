@@ -20,6 +20,9 @@ Tiles := class(creative_device):
     @editable RecordPlayerAsset: creative_prop_asset = DefaultCreativePropAsset
 
     @editable TreePropAsset: creative_prop_asset = DefaultCreativePropAsset
+    @editable TreeBigPropAsset: creative_prop_asset = DefaultCreativePropAsset
+    @editable StonePropAsset: creative_prop_asset = DefaultCreativePropAsset
+
     @editable AudioPlayers: []audio_player_device = array{}
 
     @editable AudioPlayerTreeHit: audio_player_device = audio_player_device{}
@@ -38,10 +41,44 @@ Tiles := class(creative_device):
     # var CurrentTile: ?Tile = false
     var CurrentPlayerTile: [agent]Tile = map{}
     var PlayerPressingLeft: [agent]logic = map{}
+    var PlayerStillInGame: [agent]logic = map{}
+
     var AliveProps:int = 0
     var MaxProps:int = 10            
         
+    var ForestResources: []ResourceType = array{}
+    var firstTile:?Tile =false
+    InitZoneResources():void=
+        set ForestResources =array{
+            ResourceType{Asset := TreePropAsset, FullHP := 100.0, Weight := 50, BreakNS := TreeBreakNs, HitPlayer:=AudioPlayerTreeHit, BreakPlayer:=AudioPlayerTreeBreak},
+            ResourceType{Asset := TreeBigPropAsset, FullHP := 200.0, Weight := 30, BreakNS := TreeBreakNs, HitPlayer:=AudioPlayerTreeHit, BreakPlayer:=AudioPlayerTreeBreak},  # Example of another prop with more HP
+            ResourceType{Asset := StonePropAsset, FullHP := 150.0, Weight := 20, BreakNS := TreeBreakNs, HitPlayer:=AudioPlayerTreeHit, BreakPlayer:=AudioPlayerTreeBreak}  # Example of a stone prop
+            }
+
+    ChooseWeightedResource(Type:string): ResourceType =
+        Print("Choosing Resource {Type}")
+        var resources: []ResourceType = array{}
+        case(Type):
+            "Forest" => set resources = ForestResources
+            _=> set resources = ForestResources
+
+        var totalWeight: int = 0
+        Print("resources: {resources.Length}")
+        for (resource : resources):
+            set totalWeight += resource.Weight
+
+        var randomWeight: int = GetRandomInt(0, totalWeight - 1)
+        for (resource : resources):
+            set randomWeight -= resource.Weight
+            Print("Random Weight: {randomWeight}")
+            if (randomWeight < 0):
+                Print("returning resource")
+                return resource
+
+        return ResourceType{Asset := TreePropAsset, FullHP := 100.0, Weight := 50, BreakNS := TreeBreakNs, HitPlayer:=AudioPlayerTreeHit, BreakPlayer:=AudioPlayerTreeBreak}
+
     OnBegin<override>() <suspends>: void =
+        InitZoneResources()
         InteractInput.PressedEvent.Subscribe(ExecuteSpecialTileFunction)
         LeftClickInput.PressedEvent.Subscribe(PressLeftInit)
         LeftClickInput.ReleasedEvent.Subscribe(ReleaseLeft)
@@ -56,8 +93,8 @@ Tiles := class(creative_device):
         }
         newTile.Init(TileArr, ?isActiveState := true)  # Initialize as active
         set TileArr += array{newTile}
-        for(Player:GetPlayspace().GetPlayers()):
-            if(set CurrentPlayerTile[Player] = newTile){}
+        set firstTile = option{newTile}
+        
         
         for (neighborPos : newTile.neighborPositions):
             var neighborTile: Tile = newTile.FindExistingOrInitialize(neighborPos)(0)
@@ -77,12 +114,30 @@ Tiles := class(creative_device):
         
         spawn. ResourceSpawnLoop()
         for (Player : GetPlayspace().GetPlayers()):
-            spawn. DelayedActivate(Player)
-            loop:
-                if (ACurrentTile := CurrentPlayerTile[Player]):
-                    Sleep(0.2)
-                    LocalTile := GetCurrentTile(Player, ACurrentTile)
+           spawn. PlayerLoop(Player)
 
+        Sleep(1.0)
+        GetPlayspace().PlayerAddedEvent().Subscribe(PlayerJoin)
+        
+
+    PlayerLoop(Player:agent)<suspends>:void=
+        if(set PlayerStillInGame[Player] = true){}
+        if(set CurrentPlayerTile[Player] = TileArr[0]){}
+        spawn. DelayedActivate(Player)
+        loop:
+            if( PlayerStillInGame[Player] = false):
+                break
+            if (ACurrentTile := CurrentPlayerTile[Player]):
+                Sleep(0.2)
+                LocalTile := GetCurrentTile(Player, ACurrentTile)
+
+    PlayerLeave(Player:agent):void=
+        if(set PlayerStillInGame[Player] = false){}
+        set CurrentPlayerTile = CurrentPlayerTile.Remove(Player)
+        set PlayerPressingLeft = PlayerPressingLeft.Remove(Player)
+
+    PlayerJoin(Player:agent):void=
+        spawn. DelayedActivate(Player)
 
     GetPropsByType(Type:string)<transacts>: tuple(creative_prop_asset,creative_prop_asset)=
         case(Type):
@@ -109,6 +164,8 @@ Tiles := class(creative_device):
 
     DelayedActivate(Player:agent)<suspends> : void=
         loop:
+            if( PlayerStillInGame[Player] = false):
+                break
             if(tile:=CurrentPlayerTile[Player]):
                 if(tile.isActive= false):
                     tile.Activate()
@@ -157,43 +214,61 @@ Tiles := class(creative_device):
     PressLeftInit(Player:agent):void=
         spawn. PressLeft(Player)
 
-    PressLeft(Player:agent)<suspends>:void=
-        if(set PlayerPressingLeft[Player] = true){}
+    PressLeft(Player: agent)<suspends>: void =
+        if (set PlayerPressingLeft[Player] = true){}
         Sleep(0.2)
+        var hitBufferDistance: float = 300.0
+        var lastHitResource: ?Resource = false
         loop:
-            if(PlayerPressingLeft[Player] = false):
+            if (PlayerPressingLeft[Player] = false):
                 break
-            DamageClosestNeighbourProp(Player)
+            Res := DamageClosestNeighbourProp(Player, hitBufferDistance, lastHitResource)
+            set hitBufferDistance = Res(0)
+            set lastHitResource = Res(1)
             Sleep(0.4)
 
-    ReleaseLeft(Player:agent, Time:float):void=
-        if(set PlayerPressingLeft[Player] = false){}
+    ReleaseLeft(Player: agent, Time: float): void =
+        if (set PlayerPressingLeft[Player] = false){}
 
-    DamageClosestNeighbourProp(Player:agent):void=
-        if(ACurrentTile:=CurrentPlayerTile[Player]):
+    DamageClosestNeighbourProp(Player: agent, initialHitBuffer: float, lastHitResource: ?Resource): tuple(float,?Resource) =
+        var hitBufferDistance: float = initialHitBuffer
+        if (ACurrentTile := CurrentPlayerTile[Player]):
             Print("looking for damage")
-            LookingPoint := CalculatePoint(Player, 100.0, "Forward")
+            LookingPoint := CalculatePoint(Player, 10.0, "Forward")
             LookingPoint2 := CalculatePoint(Player, 500.0, "Forward")
             var ClosestResource: ?Resource = ACurrentTile.pResource
             var ClosestDistance: float = 100000.0
-            for (neighbor : ACurrentTile.Neighbors+array{ACurrentTile}):
-                if(resource:= neighbor.pResource?):
-                    if(resource.Prop.IsValid[]):
-                        MDistance:=ManhattenDistance(resource.Prop.GetTransform().Translation, LookingPoint)
+            for (neighbor : ACurrentTile.Neighbors + array{ACurrentTile}):
+                if (resource := neighbor.pResource?):
+                    if (resource.Prop.IsValid[]):
+                        MDistance := ManhattenDistance(resource.Prop.GetTransform().Translation, LookingPoint)
                         MDistance2 := ManhattenDistance(resource.Prop.GetTransform().Translation, LookingPoint2)
-                        if(MDistance<MDistance2):
-                            if(MDistance<ClosestDistance):
+                        if (MDistance < MDistance2):
+                            if (MDistance < ClosestDistance):
                                 set ClosestDistance = MDistance
                                 set ClosestResource = option{resource}
                         else:
-                            if(MDistance2<ClosestDistance):
+                            if (MDistance2 < ClosestDistance):
                                 set ClosestDistance = MDistance2
                                 set ClosestResource = option{resource}
 
             Print("Closest Distance: {ClosestDistance}")
-            if(ClosestDistance<300.0, AClosestResource:= ClosestResource?):
+            if (ClosestDistance < hitBufferDistance, AClosestResource := ClosestResource?):
                 Print("damaging")
-                spawn. AClosestResource.TakeDamage(20.0,Player)
+                spawn. AClosestResource.TakeDamage(20.0, Player)
+                
+                # Check if the current closest resource is the same as the last hit resource
+                if (AClosestResource.UUID = lastHitResource?.UUID):
+                    set hitBufferDistance = 500.0  # Increase the buffer for smoother transition
+                else:
+                    set hitBufferDistance = initialHitBuffer  # Reset to initial buffer if different resource
+
+                # Update last hit resource
+                return (hitBufferDistance,option{AClosestResource})
+            else:
+                set hitBufferDistance = initialHitBuffer  # Reset to initial buffer if no resource is found
+
+        return (hitBufferDistance, false)
 
     GetActiveTileCount()<transacts>:int=
         var count:int = 0
@@ -202,20 +277,29 @@ Tiles := class(creative_device):
                 set count += 1
         return count
 
-    ResourceSpawnLoop()<suspends>:void=
+    ResourceSpawnLoop()<suspends>: void =
         loop:
             Sleep(2.0)
-            var Tries:int = 0
             loop:
                 Sleep(0.1)
-                if(AliveProps>=MaxProps or AliveProps>=GetActiveTileCount() or Tries>=10):
+                if (AliveProps >= MaxProps or AliveProps >= GetActiveTileCount()):
                     break
-                if(RandomTile:= TileArr[GetRandomInt(0, TileArr.Length-1)]):
-                    if(RandomTile.isActive = true):
-                        Print("active tile")
-                        if((not RandomTile.pResource?) or  RandomTile.pResource?.HP < 0.0 ):
-                            RandomTile.CreateOrRespawnResource()
-                set Tries+=1
+
+                var candidateTiles: []Tile = array{}
+                # Gather tiles that either don't have resources or their resources are depleted
+                for (tile : TileArr):
+                    if (tile.isActive = true and (not tile.pResource? or tile.pResource?.HP <= 0.0)):
+                        set candidateTiles += array{tile}
+
+                if (candidateTiles.Length > 0):
+                    # Select a tile in a round-robin fashion
+                    if(var tileIndex: int = Mod[AliveProps, candidateTiles.Length]):
+                        if(var selectedTile: Tile = candidateTiles[tileIndex]):
+                            # Create or respawn resource in the selected tile
+                            selectedTile.CreateOrRespawnResource()
+
+                Sleep(0.1)
+
                             
                         
                 

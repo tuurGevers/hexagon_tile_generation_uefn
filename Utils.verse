@@ -516,3 +516,11 @@ SortFunction(Element1: int, Element2: int)<transacts>: int =
         if(Key = KeyToCheck):
             return true
     return false
+
+(Map:[agent]t where t:type).Remove(Key:agent):[agent]t=
+    var NewMap:[agent]t = map{}
+    for(key->Value:Map):
+        if(not Key = key):
+            if(set NewMap[key] = Value){}
+    return NewMap
+   

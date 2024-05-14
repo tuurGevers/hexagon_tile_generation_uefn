@@ -5,34 +5,45 @@ using { /Fortnite.com/Characters }
 using { /Verse.org/Simulation }
 using { /Fortnite.com/Devices/CreativeAnimation }
 
-Resource := class:
-    tile: Tile
+ResourceType := struct:
     Asset: creative_prop_asset
+    FullHP: float
+    Weight: int
+    BreakNS: creative_prop_asset
     HitPlayer: audio_player_device
     BreakPlayer: audio_player_device
-    BreakNS: creative_prop_asset
+
+Resource := class:
+    tile: Tile
     var Prop: creative_prop = creative_prop{}
-    var FullHP: float = 120.0
     var HP: float = 100.0
     var HasScaled: logic = false
     var RespawnTime: float = 10.0
+    var isSpawning: logic = false
+    resourceType: ResourceType
     Main: Tiles
+    var UUID: string = ""
 
     # Method to spawn the resource
-    Spawn(): void =
+    Spawn() <suspends>: void =
+        set UUID = GenerateUUID()
         set Main.AliveProps += 1
-        set Prop = SpawnTarget(vector3{X := tile.Position.X, Y := tile.Position.Y, Z := tile.Position.Z + 500.0}, Asset)
-        set HP = FullHP
+        set isSpawning = true
+        set Prop = SpawnTarget(vector3{X := tile.Position.X, Y := tile.Position.Y, Z := tile.Position.Z - 500.0}, resourceType.Asset)
+        Prop.MoveTo(vector3{X := tile.Position.X, Y := tile.Position.Y, Z := tile.Position.Z}, IdentityRotation(), 0.5)
+        set HP = resourceType.FullHP
         set HasScaled = false
+        Sleep(0.5)
+        set isSpawning = false
 
     # Method to handle taking damage
     TakeDamage(Damage: float, Player: agent) <suspends>: void =
         if (FC := Player.GetFortCharacter[]):
-            if (HP <= 0.0):
+            if (HP <= 0.0 or isSpawning = true):
                 return
             set HP = HP - Damage
-            HPPercentage := HP / FullHP
-            HitPlayer.Play()
+            HPPercentage := HP / resourceType.FullHP
+            resourceType.HitPlayer.Play()
             spawn. ShakeTreeAnim()
             if (HPPercentage < 0.5 and HasScaled = false):
                 set HasScaled = true
@@ -42,10 +53,10 @@ Resource := class:
                     Scale := vector3{X := 0.5, Y := 0.5, Z := 0.5}
                 }, 0.5)
             if (HP <= 0.0):
-                BreakPlayer.Play()
+                resourceType.BreakPlayer.Play()
                 Prop.Dispose()
                 set Main.AliveProps -= 1
-                TempProp := SpawnTarget(vector3{X := tile.Position.X, Y := tile.Position.Y, Z := tile.Position.Z + 500.0}, BreakNS, ?Rotation := FC.GetTransform().Rotation)
+                TempProp := SpawnTarget(vector3{X := tile.Position.X, Y := tile.Position.Y, Z := tile.Position.Z + 500.0}, resourceType.BreakNS, ?Rotation := FC.GetTransform().Rotation)
                 Sleep(2.0)
                 TempProp.Dispose()
 
@@ -61,7 +72,7 @@ Resource := class:
                 },
                 duration
             )
-            Sleep(duration-0.01)
+            Sleep(duration - 0.01)
 
     ShakeTreeAnim() <suspends>: void =
         # Perform the shaking animation

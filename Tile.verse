@@ -22,12 +22,15 @@ Tile := class:
     Parent:Tiles
 
     CreateOrRespawnResource(): void =
-        if(resource:= pResource? ):
-            resource.Spawn()
-        else:
-            R:=Resource{Main:=Parent, tile:=Self, Asset:= Parent.TreePropAsset, HitPlayer:=Parent.AudioPlayerTreeHit, BreakPlayer:=Parent.AudioPlayerTreeBreak, BreakNS:=Parent.TreeBreakNs}
-            R.Spawn()
-            set pResource = option{R}
+        if (Self.isActive = true):
+            resourceType: ResourceType = Parent.ChooseWeightedResource(Type)
+            resource:= Resource{
+                tile := Self,
+                Main:=Parent,
+                resourceType:=resourceType
+                }
+            spawn. resource.Spawn()
+            set Self.pResource = option{resource}
             
 
     InitSpecial(basePosition: vector3, moves: tuple(int, int,string, creative_prop_asset)): void =
