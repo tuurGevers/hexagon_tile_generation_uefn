@@ -29,6 +29,7 @@ Tile := class:
                 Main:=Parent,
                 resourceType:=resourceType
                 }
+            Print("spawning resource")
             spawn. resource.Spawn()
             set Self.pResource = option{resource}
             

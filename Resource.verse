@@ -29,8 +29,8 @@ Resource := class:
         set UUID = GenerateUUID()
         set Main.AliveProps += 1
         set isSpawning = true
-        set Prop = SpawnTarget(vector3{X := tile.Position.X, Y := tile.Position.Y, Z := tile.Position.Z - 500.0}, resourceType.Asset)
-        Prop.MoveTo(vector3{X := tile.Position.X, Y := tile.Position.Y, Z := tile.Position.Z}, IdentityRotation(), 0.5)
+        set Prop = SpawnTarget(vector3{X := tile.Position.X, Y := tile.Position.Y, Z := tile.Position.Z}, resourceType.Asset)
+        Prop.MoveTo(vector3{X := tile.Position.X, Y := tile.Position.Y, Z := tile.Position.Z + 500.0}, IdentityRotation(), 0.5)
         set HP = resourceType.FullHP
         set HasScaled = false
         Sleep(0.5)
@@ -45,6 +45,9 @@ Resource := class:
             HPPercentage := HP / resourceType.FullHP
             resourceType.HitPlayer.Play()
             spawn. ShakeTreeAnim()
+            if(CurrentUI:=Main.PlayerHealthUI[Player]):
+                spawn. CurrentUI.UpdateUI(Player, Self)
+
             if (HPPercentage < 0.5 and HasScaled = false):
                 set HasScaled = true
                 Prop.MoveTo(transform{

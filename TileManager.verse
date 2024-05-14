@@ -42,6 +42,7 @@ Tiles := class(creative_device):
     var CurrentPlayerTile: [agent]Tile = map{}
     var PlayerPressingLeft: [agent]logic = map{}
     var PlayerStillInGame: [agent]logic = map{}
+    var PlayerHealthUI: [agent]Health_UI = map{}
 
     var AliveProps:int = 0
     var MaxProps:int = 10            
@@ -123,6 +124,8 @@ Tiles := class(creative_device):
     PlayerLoop(Player:agent)<suspends>:void=
         if(set PlayerStillInGame[Player] = true){}
         if(set CurrentPlayerTile[Player] = TileArr[0]){}
+        NewUI:=Health_UI{Main:=Self}
+        if(set PlayerHealthUI[Player]= NewUI){}
         spawn. DelayedActivate(Player)
         loop:
             if( PlayerStillInGame[Player] = false):
@@ -130,6 +133,11 @@ Tiles := class(creative_device):
             if (ACurrentTile := CurrentPlayerTile[Player]):
                 Sleep(0.2)
                 LocalTile := GetCurrentTile(Player, ACurrentTile)
+                PResource:= FindClosestResource(Player)
+                if(not PResource(1)? or PResource(0) > 500.0):
+                    if(CurretnPLayerHealthUI:= PlayerHealthUI[Player]):
+                        CurretnPLayerHealthUI.RemoveUIFromPlayer(Player)
+
 
     PlayerLeave(Player:agent):void=
         if(set PlayerStillInGame[Player] = false){}
@@ -230,13 +238,12 @@ Tiles := class(creative_device):
     ReleaseLeft(Player: agent, Time: float): void =
         if (set PlayerPressingLeft[Player] = false){}
 
-    DamageClosestNeighbourProp(Player: agent, initialHitBuffer: float, lastHitResource: ?Resource): tuple(float,?Resource) =
-        var hitBufferDistance: float = initialHitBuffer
+
+    FindClosestResource(Player: agent): tuple(float,?Resource) =
+        LookingPoint := CalculatePoint(Player, 10.0, "Forward")
+        LookingPoint2 := CalculatePoint(Player, 500.0, "Forward")
         if (ACurrentTile := CurrentPlayerTile[Player]):
-            Print("looking for damage")
-            LookingPoint := CalculatePoint(Player, 10.0, "Forward")
-            LookingPoint2 := CalculatePoint(Player, 500.0, "Forward")
-            var ClosestResource: ?Resource = ACurrentTile.pResource
+            var ClosestResource: ?Resource = false
             var ClosestDistance: float = 100000.0
             for (neighbor : ACurrentTile.Neighbors + array{ACurrentTile}):
                 if (resource := neighbor.pResource?):
@@ -251,6 +258,18 @@ Tiles := class(creative_device):
                             if (MDistance2 < ClosestDistance):
                                 set ClosestDistance = MDistance2
                                 set ClosestResource = option{resource}
+            return (ClosestDistance, ClosestResource)
+        return (99999999.0,false)
+
+    DamageClosestNeighbourProp(Player: agent, initialHitBuffer: float, lastHitResource: ?Resource): tuple(float, ?Resource) =
+        Res:=FindClosestResource(Player)
+        ClosestDistance:=Res(0)
+        ClosestResource:=Res(1)
+        return (DamageClosest(Player, initialHitBuffer, lastHitResource, ClosestDistance, ClosestResource), ClosestResource)
+                        
+            
+    DamageClosest(Player: agent, initialHitBuffer: float, lastHitResource: ?Resource,ClosestDistance:float,ClosestResource:?Resource):float=
+        var hitBufferDistance: float = initialHitBuffer
 
             Print("Closest Distance: {ClosestDistance}")
             if (ClosestDistance < hitBufferDistance, AClosestResource := ClosestResource?):
@@ -264,11 +283,12 @@ Tiles := class(creative_device):
                     set hitBufferDistance = initialHitBuffer  # Reset to initial buffer if different resource
 
                 # Update last hit resource
-                return (hitBufferDistance,option{AClosestResource})
+                return (hitBufferDistance)
             else:
                 set hitBufferDistance = initialHitBuffer  # Reset to initial buffer if no resource is found
 
-        return (hitBufferDistance, false)
+        
+        return (hitBufferDistance)
 
     GetActiveTileCount()<transacts>:int=
         var count:int = 0
@@ -292,9 +312,11 @@ Tiles := class(creative_device):
                         set candidateTiles += array{tile}
 
                 if (candidateTiles.Length > 0):
+                    Print("Selecting Tile")
                     # Select a tile in a round-robin fashion
                     if(var tileIndex: int = Mod[AliveProps, candidateTiles.Length]):
                         if(var selectedTile: Tile = candidateTiles[tileIndex]):
+                            Print("Selected Tile")
                             # Create or respawn resource in the selected tile
                             selectedTile.CreateOrRespawnResource()
 
