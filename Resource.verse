@@ -45,6 +45,9 @@ Resource := class:
             HPPercentage := HP / resourceType.FullHP
             resourceType.HitPlayer.Play()
             spawn. ShakeTreeAnim()
+            if(PersistanceLayer:=Main.PlayerPersistanceLayer[Player]):
+                Wood:= PersistanceLayer.Wood.IncreaseValue(5)
+                Print("new wood: {Wood}")
             if(CurrentUI:=Main.PlayerHealthUI[Player]):
                 spawn. CurrentUI.UpdateUI(Player, Self)
 

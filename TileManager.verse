@@ -43,6 +43,7 @@ Tiles := class(creative_device):
     var PlayerPressingLeft: [agent]logic = map{}
     var PlayerStillInGame: [agent]logic = map{}
     var PlayerHealthUI: [agent]Health_UI = map{}
+    var PlayerPersistanceLayer:[agent]PlayerClass = map{}
 
     var AliveProps:int = 0
     var MaxProps:int = 10            
@@ -121,9 +122,12 @@ Tiles := class(creative_device):
         GetPlayspace().PlayerAddedEvent().Subscribe(PlayerJoin)
         
 
-    PlayerLoop(Player:agent)<suspends>:void=
+    PlayerLoop(Player:player)<suspends>:void=
         if(set PlayerStillInGame[Player] = true){}
         if(set CurrentPlayerTile[Player] = TileArr[0]){}
+        NewClass:=PlayerClass{Player:=Player}
+        NewClass.Init()
+        if(set PlayerPersistanceLayer[Player]=NewClass){}
         NewUI:=Health_UI{Main:=Self}
         if(set PlayerHealthUI[Player]= NewUI){}
         spawn. DelayedActivate(Player)
@@ -144,8 +148,9 @@ Tiles := class(creative_device):
         set CurrentPlayerTile = CurrentPlayerTile.Remove(Player)
         set PlayerPressingLeft = PlayerPressingLeft.Remove(Player)
 
-    PlayerJoin(Player:agent):void=
+    PlayerJoin(Player:player):void=
         spawn. DelayedActivate(Player)
+        spawn. PlayerLoop(Player)
 
     GetPropsByType(Type:string)<transacts>: tuple(creative_prop_asset,creative_prop_asset)=
         case(Type):
@@ -233,7 +238,7 @@ Tiles := class(creative_device):
             Res := DamageClosestNeighbourProp(Player, hitBufferDistance, lastHitResource)
             set hitBufferDistance = Res(0)
             set lastHitResource = Res(1)
-            Sleep(0.4)
+            Sleep(0.7)
 
     ReleaseLeft(Player: agent, Time: float): void =
         if (set PlayerPressingLeft[Player] = false){}
