@@ -35,12 +35,12 @@ Tiles := class(creative_device):
     }
 
     var TileArr: []Tile = array{}
-    var CurrentTile: ?Tile = false
-    var IsPressingLeft:logic = false
+    # var CurrentTile: ?Tile = false
+    var CurrentPlayerTile: [agent]Tile = map{}
+    var PlayerPressingLeft: [agent]logic = map{}
     var AliveProps:int = 0
-    var MaxProps:int = 10    
-
-   
+    var MaxProps:int = 10            
+        
     OnBegin<override>() <suspends>: void =
         InteractInput.PressedEvent.Subscribe(ExecuteSpecialTileFunction)
         LeftClickInput.PressedEvent.Subscribe(PressLeftInit)
@@ -56,7 +56,8 @@ Tiles := class(creative_device):
         }
         newTile.Init(TileArr, ?isActiveState := true)  # Initialize as active
         set TileArr += array{newTile}
-        set CurrentTile = option{newTile}
+        for(Player:GetPlayspace().GetPlayers()):
+            if(set CurrentPlayerTile[Player] = newTile){}
         
         for (neighborPos : newTile.neighborPositions):
             var neighborTile: Tile = newTile.FindExistingOrInitialize(neighborPos)(0)
@@ -75,10 +76,10 @@ Tiles := class(creative_device):
             set TileArr += array{PremadeTile}
         
         spawn. ResourceSpawnLoop()
-        if (Player := GetPlayspace().GetPlayers()[0]):
-            spawn. DelayedActivate()
+        for (Player : GetPlayspace().GetPlayers()):
+            spawn. DelayedActivate(Player)
             loop:
-                if (ACurrentTile := CurrentTile?):
+                if (ACurrentTile := CurrentPlayerTile[Player]):
                     Sleep(0.2)
                     LocalTile := GetCurrentTile(Player, ACurrentTile)
 
@@ -103,12 +104,12 @@ Tiles := class(creative_device):
                     set closestTile = neighbor  # Recursively find the closest tile
 
              
-            set CurrentTile = option{closestTile}
+            if(set CurrentPlayerTile[Player] = closestTile){}
         return closestTile
 
-    DelayedActivate()<suspends> : void=
+    DelayedActivate(Player:agent)<suspends> : void=
         loop:
-            if(tile:=CurrentTile?):
+            if(tile:=CurrentPlayerTile[Player]):
                 if(tile.isActive= false):
                     tile.Activate()
                 
@@ -136,7 +137,7 @@ Tiles := class(creative_device):
 
 
     ExecuteSpecialTileFunction(Player:agent):void=
-        if(ACurrentTile:=CurrentTile?):
+        if(ACurrentTile:=CurrentPlayerTile[Player]):
             if(ACurrentTile.isActive = false):
                 return
             case(ACurrentTile.Type):
@@ -157,19 +158,19 @@ Tiles := class(creative_device):
         spawn. PressLeft(Player)
 
     PressLeft(Player:agent)<suspends>:void=
-        set IsPressingLeft = true
+        if(set PlayerPressingLeft[Player] = true){}
         Sleep(0.2)
         loop:
-            if(IsPressingLeft = false):
+            if(PlayerPressingLeft[Player] = false):
                 break
             DamageClosestNeighbourProp(Player)
             Sleep(0.4)
 
     ReleaseLeft(Player:agent, Time:float):void=
-        set IsPressingLeft = false
+        if(set PlayerPressingLeft[Player] = false){}
 
     DamageClosestNeighbourProp(Player:agent):void=
-        if(ACurrentTile:=CurrentTile?):
+        if(ACurrentTile:=CurrentPlayerTile[Player]):
             Print("looking for damage")
             LookingPoint := CalculatePoint(Player, 100.0, "Forward")
             LookingPoint2 := CalculatePoint(Player, 500.0, "Forward")
