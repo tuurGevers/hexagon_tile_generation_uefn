@@ -10,8 +10,10 @@ ResourceType := struct:
     FullHP: float
     Weight: int
     BreakNS: creative_prop_asset
-    HitPlayer: audio_player_device
+    HitPlayers: []audio_player_device
     BreakPlayer: audio_player_device
+    ItemDrop:string
+    TotalDropAmount:int
 
 Resource := class:
     tile: Tile
@@ -23,6 +25,7 @@ Resource := class:
     resourceType: ResourceType
     Main: Tiles
     var UUID: string = ""
+    var HitIndex: int = 0
 
     # Method to spawn the resource
     Spawn() <suspends>: void =
@@ -37,17 +40,15 @@ Resource := class:
         set isSpawning = false
 
     # Method to handle taking damage
-    TakeDamage(Damage: float, Player: agent) <suspends>: void =
+    TakeDamage(Player: agent, Damage: float ) <suspends>: void =
         if (FC := Player.GetFortCharacter[]):
             if (HP <= 0.0 or isSpawning = true):
                 return
             set HP = HP - Damage
             HPPercentage := HP / resourceType.FullHP
-            resourceType.HitPlayer.Play()
+            PlayAudio(Player)
             spawn. ShakeTreeAnim()
-            if(PersistanceLayer:=Main.PlayerPersistanceLayer[Player]):
-                Wood:= PersistanceLayer.Wood.IncreaseValue(5)
-                Print("new wood: {Wood}")
+            DropItem(Player, Damage)
             if(CurrentUI:=Main.PlayerHealthUI[Player]):
                 spawn. CurrentUI.UpdateUI(Player, Self)
 
@@ -59,6 +60,7 @@ Resource := class:
                     Scale := vector3{X := 0.5, Y := 0.5, Z := 0.5}
                 }, 0.5)
             if (HP <= 0.0):
+                DropExtraItems(Player)
                 resourceType.BreakPlayer.Play()
                 Prop.Dispose()
                 set Main.AliveProps -= 1
@@ -91,3 +93,45 @@ Resource := class:
     Respawn() <suspends>: void =
         Sleep(RespawnTime)
         Spawn()
+
+    PlayAudio(Player:agent):void=
+        if(HitIndex >= resourceType.HitPlayers.Length):
+            set HitIndex = 0
+        if(AudioPlayer:= resourceType.HitPlayers[HitIndex]):
+            AudioPlayer.Play(Player)
+        set HitIndex += 1
+
+    DropItem(Player:agent, Damage:float):void=
+        if(DropAmount:= Ceil[resourceType.TotalDropAmount*(Damage/resourceType.FullHP)]):
+            case (resourceType.ItemDrop):
+                "Wood" =>
+                    if(PersistanceLayer:=Main.PlayerPersistanceLayer[Player]):
+                        Wood:= PersistanceLayer.Wood.IncreaseValue(DropAmount)
+                        ShowDropUI(Player, DropAmount, "Wood")
+                        Print("new wood: {Wood}")
+                "Stone" =>
+                    if(PersistanceLayer:=Main.PlayerPersistanceLayer[Player]):
+                        Stone:= PersistanceLayer.Stone.IncreaseValue(DropAmount)
+                        ShowDropUI(Player, DropAmount, "Stone")
+                        Print("new stone: {Stone}")
+                _=>
+                
+    # Method to drop extra items when resource "dies"
+    DropExtraItems(Player: agent): void =
+        if(ExtraDropAmount :int= Ceil[resourceType.TotalDropAmount * 0.2]):
+            case (resourceType.ItemDrop):
+                "Wood" =>
+                    if(PersistanceLayer:=Main.PlayerPersistanceLayer[Player]):
+                        Wood := PersistanceLayer.Wood.IncreaseValue(ExtraDropAmount)
+                        ShowDropUI(Player, ExtraDropAmount, "Wood")
+                        Print("extra wood: {Wood}")
+                "Stone" =>
+                    if(PersistanceLayer:=Main.PlayerPersistanceLayer[Player]):
+                        Stone := PersistanceLayer.Stone.IncreaseValue(ExtraDropAmount)
+                        ShowDropUI(Player, ExtraDropAmount, "Stone")
+                        Print("extra stone: {Stone}")
+                _ =>
+
+    ShowDropUI(Player:agent, Amount:int,Type:string ):void=
+        TempUI:=Drop_UI{}
+        TempUI.ShowUIToPlayer(Player, Amount, Type)

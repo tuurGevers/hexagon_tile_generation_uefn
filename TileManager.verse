@@ -25,9 +25,12 @@ Tiles := class(creative_device):
 
     @editable AudioPlayers: []audio_player_device = array{}
 
-    @editable AudioPlayerTreeHit: audio_player_device = audio_player_device{}
+    @editable AudioPlayersTreeHit: []audio_player_device = array{}
     @editable AudioPlayerTreeBreak: audio_player_device = audio_player_device{}
+
     @editable TreeBreakNs: creative_prop_asset = DefaultCreativePropAsset
+    @editable BigTreeBreakNs: creative_prop_asset = DefaultCreativePropAsset
+    @editable StoneBreakNs: creative_prop_asset = DefaultCreativePropAsset
     
     basePosition:vector3= vector3{X:=0.0, Y:=0.0, Z:=0.0}
 
@@ -52,13 +55,12 @@ Tiles := class(creative_device):
     var firstTile:?Tile =false
     InitZoneResources():void=
         set ForestResources =array{
-            ResourceType{Asset := TreePropAsset, FullHP := 100.0, Weight := 50, BreakNS := TreeBreakNs, HitPlayer:=AudioPlayerTreeHit, BreakPlayer:=AudioPlayerTreeBreak},
-            ResourceType{Asset := TreeBigPropAsset, FullHP := 200.0, Weight := 30, BreakNS := TreeBreakNs, HitPlayer:=AudioPlayerTreeHit, BreakPlayer:=AudioPlayerTreeBreak},  # Example of another prop with more HP
-            ResourceType{Asset := StonePropAsset, FullHP := 150.0, Weight := 20, BreakNS := TreeBreakNs, HitPlayer:=AudioPlayerTreeHit, BreakPlayer:=AudioPlayerTreeBreak}  # Example of a stone prop
+            ResourceType{Asset := TreePropAsset, FullHP := 100.0, Weight := 50, BreakNS := TreeBreakNs, HitPlayers:=AudioPlayersTreeHit, BreakPlayer:=AudioPlayerTreeBreak, ItemDrop:="Wood", TotalDropAmount:=20},
+            ResourceType{Asset := TreeBigPropAsset, FullHP := 200.0, Weight := 30, BreakNS := BigTreeBreakNs, HitPlayers:=AudioPlayersTreeHit, BreakPlayer:=AudioPlayerTreeBreak,ItemDrop:="Wood", TotalDropAmount:=40},  # Example of another prop with more HP
+            ResourceType{Asset := StonePropAsset, FullHP := 150.0, Weight := 20, BreakNS := StoneBreakNs, HitPlayers:=AudioPlayersTreeHit, BreakPlayer:=AudioPlayerTreeBreak, ItemDrop:="Stone", TotalDropAmount:=10}  # Example of a stone prop
             }
 
     ChooseWeightedResource(Type:string): ResourceType =
-        Print("Choosing Resource {Type}")
         var resources: []ResourceType = array{}
         case(Type):
             "Forest" => set resources = ForestResources
@@ -70,14 +72,13 @@ Tiles := class(creative_device):
             set totalWeight += resource.Weight
 
         var randomWeight: int = GetRandomInt(0, totalWeight - 1)
-        for (resource : resources):
+        for (I->resource : resources):
             set randomWeight -= resource.Weight
-            Print("Random Weight: {randomWeight}")
             if (randomWeight < 0):
-                Print("returning resource")
+                Print("returning resource {I}")
                 return resource
 
-        return ResourceType{Asset := TreePropAsset, FullHP := 100.0, Weight := 50, BreakNS := TreeBreakNs, HitPlayer:=AudioPlayerTreeHit, BreakPlayer:=AudioPlayerTreeBreak}
+        return ResourceType{Asset := TreePropAsset, FullHP := 100.0, Weight := 50, BreakNS := BigTreeBreakNs, HitPlayers:=AudioPlayersTreeHit, BreakPlayer:=AudioPlayerTreeBreak, ItemDrop:="Wood", TotalDropAmount:=20}
 
     OnBegin<override>() <suspends>: void =
         InitZoneResources()
@@ -279,7 +280,7 @@ Tiles := class(creative_device):
             Print("Closest Distance: {ClosestDistance}")
             if (ClosestDistance < hitBufferDistance, AClosestResource := ClosestResource?):
                 Print("damaging")
-                spawn. AClosestResource.TakeDamage(20.0, Player)
+                spawn. AClosestResource.TakeDamage(Player, 20.0)
                 
                 # Check if the current closest resource is the same as the last hit resource
                 if (AClosestResource.UUID = lastHitResource?.UUID):
