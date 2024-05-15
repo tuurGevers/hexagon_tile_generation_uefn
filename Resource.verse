@@ -50,6 +50,7 @@ Resource := class:
             spawn. ShakeTreeAnim()
             DropItem(Player, Damage)
             if(CurrentUI:=Main.PlayerHealthUI[Player]):
+                Print("Updating UI")
                 spawn. CurrentUI.UpdateUI(Player, Self)
 
             if (HPPercentage < 0.5 and HasScaled = false):
@@ -108,12 +109,10 @@ Resource := class:
                     if(PersistanceLayer:=Main.PlayerPersistanceLayer[Player]):
                         Wood:= PersistanceLayer.Wood.IncreaseValue(DropAmount)
                         ShowDropUI(Player, DropAmount, "Wood")
-                        Print("new wood: {Wood}")
                 "Stone" =>
                     if(PersistanceLayer:=Main.PlayerPersistanceLayer[Player]):
                         Stone:= PersistanceLayer.Stone.IncreaseValue(DropAmount)
                         ShowDropUI(Player, DropAmount, "Stone")
-                        Print("new stone: {Stone}")
                 _=>
                 
     # Method to drop extra items when resource "dies"
@@ -124,14 +123,12 @@ Resource := class:
                     if(PersistanceLayer:=Main.PlayerPersistanceLayer[Player]):
                         Wood := PersistanceLayer.Wood.IncreaseValue(ExtraDropAmount)
                         ShowDropUI(Player, ExtraDropAmount, "Wood")
-                        Print("extra wood: {Wood}")
                 "Stone" =>
                     if(PersistanceLayer:=Main.PlayerPersistanceLayer[Player]):
                         Stone := PersistanceLayer.Stone.IncreaseValue(ExtraDropAmount)
                         ShowDropUI(Player, ExtraDropAmount, "Stone")
-                        Print("extra stone: {Stone}")
                 _ =>
 
     ShowDropUI(Player:agent, Amount:int,Type:string ):void=
-        TempUI:=Drop_UI{}
-        TempUI.ShowUIToPlayer(Player, Amount, Type)
+        if(UI:=Main.PlayerDropUI[Player]):
+            spawn. UI.AddElement(Player, Amount, Type)

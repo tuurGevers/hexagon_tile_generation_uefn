@@ -57,26 +57,30 @@ Health_UI := class:
     
 
 
-    SHowUiToPlayer(Player:agent):void=
+    ShowUIToPlayer(Player:agent):void=
         CreateCanvas()
         if(PlayerUI:= GetPlayerUI[player[Player]]):
+            Print("canvas added")
             PlayerUI.AddWidget(Canvas, player_ui_slot{})
 
         
             
     
-    RemoveUIFromPlayer(Player:agent):void=
+    RemoveUIFromPlayer(Player:agent,?Active:logic=false):void=
         if(PlayerUI:= GetPlayerUI[player[Player]]):
-            set IsActive= false
+            set IsActive= Active
             PlayerUI.RemoveWidget(Canvas)
 
     UpdateUI(Player:agent, resource:Resource)<suspends>:void=
         if(not LastUUID = resource.UUID or IsActive = false):
+            if(IsActive=true):
+                Print("uis is active")
             set IsActive= true
             set LastUUID= resource.UUID
             if(not LastUUID = ""):
-                RemoveUIFromPlayer(Player)
-            SHowUiToPlayer(Player)
+                RemoveUIFromPlayer(Player, ?Active:=true)
+            ShowUIToPlayer(Player)
+            Print("ui activated")
         if(IntHP:= Floor[resource.HP], IntFullHP:= Floor[resource.resourceType.FullHP]):
             TextWidget.SetText(SetText("HP: {IntHP}/{IntFullHP}"))
             HPPercentage:= resource.HP/resource.resourceType.FullHP
@@ -84,6 +88,7 @@ Health_UI := class:
             CurrentWidth:= DrainingHP.GetDesiredSize().X
             FullHP.SetDesiredSize(vector2{X:=NewWidth, Y:=DefaultHeight})
             Decrements:= (CurrentWidth-NewWidth)/10.0
+            Print("decrements: {Decrements}")
             
             for(I:=1..10):
                 DrainingHP.SetDesiredSize(vector2{X:=CurrentWidth-Decrements*I, Y:=DefaultHeight})

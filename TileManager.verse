@@ -47,6 +47,7 @@ Tiles := class(creative_device):
     var PlayerStillInGame: [agent]logic = map{}
     var PlayerHealthUI: [agent]Health_UI = map{}
     var PlayerPersistanceLayer:[agent]PlayerClass = map{}
+    var PlayerDropUI: [agent]Drop_UI = map{}
 
     var AliveProps:int = 0
     var MaxProps:int = 10            
@@ -131,6 +132,9 @@ Tiles := class(creative_device):
         if(set PlayerPersistanceLayer[Player]=NewClass){}
         NewUI:=Health_UI{Main:=Self}
         if(set PlayerHealthUI[Player]= NewUI){}
+        DropUI:=Drop_UI{}
+        DropUI.ShowUIToPlayer(Player)
+        if(set PlayerDropUI[Player]=DropUI){}
         spawn. DelayedActivate(Player)
         loop:
             if( PlayerStillInGame[Player] = false):
@@ -139,9 +143,12 @@ Tiles := class(creative_device):
                 Sleep(0.2)
                 LocalTile := GetCurrentTile(Player, ACurrentTile)
                 PResource:= FindClosestResource(Player)
+                
                 if(not PResource(1)? or PResource(0) > 500.0):
                     if(CurretnPLayerHealthUI:= PlayerHealthUI[Player]):
-                        CurretnPLayerHealthUI.RemoveUIFromPlayer(Player)
+                        if(CurretnPLayerHealthUI.IsActive = true):
+                            CurretnPLayerHealthUI.RemoveUIFromPlayer(Player)
+                
 
 
     PlayerLeave(Player:agent):void=
