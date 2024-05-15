@@ -19,6 +19,9 @@ Tile := class:
     var AdditionalPropAsset:?creative_prop_asset = false
     var AdditionalProp:?creative_prop = false
     var pResource:?Resource = false
+    var UUID:string = ""
+    var ResourcesRequired: []ResourceRequired = array{}
+
     Parent:Tiles
 
     CreateOrRespawnResource(): void =
@@ -53,6 +56,8 @@ Tile := class:
 
 
     Init(TileArray: []Tile, ?isActiveState: logic = false, ?InitType:string="Auto"): void =
+        set ResourcesRequired = array{ResourceRequired{Type:= "Wood", TargetAmount:= 50}}
+        set UUID = GenerateUUID()
         Self.CalculateNeighborPositions()
         set isActive = isActiveState
 
@@ -81,7 +86,34 @@ Tile := class:
         Self.UpdateNeighbors()
 
         if (isActiveState=true):
-            Self.Activate()
+            spawn. Self.Activate()
+
+
+    PutResourcesOnTile(Player:agent): void =
+        if(Persistance:=Parent.PlayerPersistanceLayer[Player]):
+            var NotCompleted:int=0
+            var DecreaseAmount:int=10
+            for (resource: ResourcesRequired):
+                case(resource.Type):
+                    "Wood"=>{
+                        if(V:=Persistance.Wood.GetValue(), V<10):
+                            set DecreaseAmount=V
+                        if(Persistance.Wood.DecreasePositiveValue(DecreaseAmount)=true):
+                            Print("Wood added new value {Persistance.Wood.GetValue()}")
+                            resource.AddResource(DecreaseAmount)
+
+                        else:
+                            Print("Not enough wood")
+                        
+                    }
+                    _=>
+
+                if(resource.IsCompleted = false):
+                    set NotCompleted+=1
+            spawn. MoveUp()
+            if(NotCompleted=0):
+                spawn. Self.Activate()
+            
 
 
     CalculateNeighborPositions(): void =
@@ -97,13 +129,18 @@ Tile := class:
             var potentialPosition:vector3 = Position + offset
             set neighborPositions += array{potentialPosition}
 
-    Activate(): void =
+    Activate()<suspends>: void =
+        Print("Activating Tile")
+        if(isActive = true):
+            return
         set isActive = true
         set Neighbors = array{}
-     
+        Position.Print(?Msg:= "Activating Tile at position: ")
+        set Prop = SpawnTarget(vector3{X:=Position.X, Y:=Position.Y, Z:=-500.0}, TilePropAsset)  # Spawn active tile
+        Sleep(0.0)
+        Prop.MoveTo(Position, IdentityRotation(), 1.0)
         if(InActiveProp.IsValid[]):
             InActiveProp.Dispose()
-        set Prop = SpawnTarget(Position, TilePropAsset)  # Spawn active tile
         # spawn. AnimateProp()
         for (position : neighborPositions):
             UPDated:= FindExistingOrInitialize(position)
@@ -112,14 +149,6 @@ Tile := class:
                 set Parent.TileArr += array{neighbor}
             set Neighbors += array{neighbor}
 
-        Print("Total Neighbors added: {Neighbors.Length}")
-
-    AnimateProp()<suspends>: void =
-        spawn. Prop.MoveTo(vector3{X:=Position.X, Y:=Position.Y, Z:=Position.Z+500.0}, IdentityRotation().ApplyYaw(DegreesToRadians(270.0)), 1.0)
-        Sleep(0.99)
-        spawn. Prop.MoveTo(vector3{X:=Position.X, Y:=Position.Y, Z:=Position.Z-100.0}, IdentityRotation().ApplyYaw(DegreesToRadians(-360.0)), 1.0)
-        Sleep(0.99)
-        Prop.MoveTo(vector3{X:=Position.X, Y:=Position.Y, Z:=Position.Z}, IdentityRotation(), 1.0)
    
   
 
@@ -158,6 +187,22 @@ Tile := class:
         if (not FindExisting(newNeighbor.Position)? ):
             set Neighbors += array{newNeighbor} 
 
+
+    MoveUp()<suspends>:void=
+        var CurrentAmount:int =0
+        var TargetAmount:int =0
+        for(requiredResource: ResourcesRequired):
+            set CurrentAmount+=requiredResource.CurrentAmount
+            set TargetAmount+=requiredResource.TargetAmount
+
+        CompeltionPercentage:float=(CurrentAmount*1.0)/(TargetAmount*1.0)
+        Print("current amount {CurrentAmount} target amount {TargetAmount} completion percentage {CompeltionPercentage}")
+        ZIncrease:=(500.0*CompeltionPercentage)-500.0
+        if(not Prop.IsValid[]):
+            set Prop = SpawnTarget(vector3{X:=Position.X, Y:=Position.Y, Z:=-500.0}, TilePropAsset)  # Spawn active tile
+            Sleep(0.0)
+        spawn. Prop.MoveTo(vector3{X:=Position.X, Y:=Position.Y, Z:=ZIncrease}, IdentityRotation(), 1.0)
+
     (V:vector3).ApproxEquals(other: vector3, threshold: float) <transacts>: logic =
         if(ManhattenDistance(V , other) < threshold):
             return true
@@ -165,3 +210,18 @@ Tile := class:
 
     (V:vector3).Magnitude() <transacts>: float =
         return Sqrt((V.X * V.X) + (V.Y * V.Y) + (V.Z * V.Z))
+
+ResourceRequired:=class:
+    Type: string
+    var CurrentAmount: int = 0
+    TargetAmount: int
+    var IsCompleted: logic = false
+
+
+    AddResource(Amount: int): void =
+        set CurrentAmount = CurrentAmount + Amount
+        if (CurrentAmount >= TargetAmount):
+            set IsCompleted = true
+            set CurrentAmount = TargetAmount
+
+    

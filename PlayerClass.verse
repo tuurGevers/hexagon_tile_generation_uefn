@@ -28,6 +28,9 @@ PersistableItem:=class:
     IncreaseValue(value:float):float=0.0
     DecreaseValue(value:float):float=0.0
 
+    DecreasePositiveValue(value:int)<transacts>:logic={false}
+
+
 
 PersistableWood:=class(PersistableItem):
 
@@ -53,7 +56,20 @@ PersistableWood:=class(PersistableItem):
 
         return -1
 
-    GetValue():int=
+    DecreasePositiveValue<override>(value:int)<transacts>:logic=
+        if(Player:=PPlayer?,CurrentPlayerData:=PlayerData[Player]):
+            if(CurrentPlayerData.Wood>=value):
+                NewPlayerData:=PlayerPersistance{
+                    Wood:=CurrentPlayerData.Wood-value
+                    Stone:=CurrentPlayerData.Stone
+                }
+                if(set PlayerData[Player] = NewPlayerData):
+                    return true
+
+        return false
+
+
+    GetValue()<transacts>:int=
         if(Player:=PPlayer?,CurrentPlayerData:=PlayerData[Player]):
             return CurrentPlayerData.Wood
 
@@ -83,7 +99,7 @@ PersistableStone:=class(PersistableItem):
 
         return -1
 
-    GetValue():int=
+    GetValue()<transacts>:int=
         if(Player:=PPlayer?,CurrentPlayerData:=PlayerData[Player]):
             return CurrentPlayerData.Stone
 

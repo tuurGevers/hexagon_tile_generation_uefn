@@ -12,8 +12,12 @@ Tiles := class(creative_device):
     @editable ActiveTile: creative_prop_asset = DefaultCreativePropAsset
     @editable DebugCube:creative_prop = creative_prop{}
     @editable DebugCubeAsset:creative_prop_asset = DefaultCreativePropAsset
+
     @editable TestInActive: creative_prop_asset = DefaultCreativePropAsset
     @editable TestActive: creative_prop_asset = DefaultCreativePropAsset
+    
+    @editable SandInActive: creative_prop_asset = DefaultCreativePropAsset
+    @editable SandActive: creative_prop_asset = DefaultCreativePropAsset
 
     @editable InteractInput: input_trigger_device = input_trigger_device{}
     @editable LeftClickInput: input_trigger_device = input_trigger_device{}
@@ -22,6 +26,9 @@ Tiles := class(creative_device):
     @editable TreePropAsset: creative_prop_asset = DefaultCreativePropAsset
     @editable TreeBigPropAsset: creative_prop_asset = DefaultCreativePropAsset
     @editable StonePropAsset: creative_prop_asset = DefaultCreativePropAsset
+
+    @editable CactusPropAsset: creative_prop_asset = DefaultCreativePropAsset
+
 
     @editable AudioPlayers: []audio_player_device = array{}
 
@@ -35,10 +42,14 @@ Tiles := class(creative_device):
     basePosition:vector3= vector3{X:=0.0, Y:=0.0, Z:=0.0}
 
     var PremadeTiles:[]tuple(int,int,string, creative_prop_asset) = array{}
-    Zones:[]tuple(tuple(int, int), tuple(int,int), string) = {
-        ((-20, -10), (-11, 10), "Desert"),
-        ((-10,-10), (10, 10), "Forest")
+    Zones: []tuple(tuple(int, int), tuple(int, int), string) = {
+    ((-10, 5), (10, 10), "Desert"),  # North Desert
+    ((-10, -10), (10, -5), "Desert"), # South Desert
+    ((5, -5), (10, 5), "Desert"),     # East Desert
+    ((-10, -5), (-5, 5), "Desert"),   # West Desert
+    ((-5, -5), (5, 5), "Forest")      # Central Forest
     }
+
 
     var TileArr: []Tile = array{}
     # var CurrentTile: ?Tile = false
@@ -53,6 +64,7 @@ Tiles := class(creative_device):
     var MaxProps:int = 10            
         
     var ForestResources: []ResourceType = array{}
+    var DesertResources: []ResourceType = array{}
     var firstTile:?Tile =false
     InitZoneResources():void=
         set ForestResources =array{
@@ -60,11 +72,16 @@ Tiles := class(creative_device):
             ResourceType{Asset := TreeBigPropAsset, FullHP := 200.0, Weight := 30, BreakNS := BigTreeBreakNs, HitPlayers:=AudioPlayersTreeHit, BreakPlayer:=AudioPlayerTreeBreak,ItemDrop:="Wood", TotalDropAmount:=40},  # Example of another prop with more HP
             ResourceType{Asset := StonePropAsset, FullHP := 150.0, Weight := 20, BreakNS := StoneBreakNs, HitPlayers:=AudioPlayersTreeHit, BreakPlayer:=AudioPlayerTreeBreak, ItemDrop:="Stone", TotalDropAmount:=10}  # Example of a stone prop
             }
+        set DesertResources = array{
+            ResourceType{Asset := CactusPropAsset, FullHP := 100.0, Weight := 50, BreakNS := TreeBreakNs, HitPlayers:=AudioPlayersTreeHit, BreakPlayer:=AudioPlayerTreeBreak, ItemDrop:="Wood", TotalDropAmount:=40}
+
+        }
 
     ChooseWeightedResource(Type:string): ResourceType =
         var resources: []ResourceType = array{}
         case(Type):
             "Forest" => set resources = ForestResources
+            "Desert" => set resources = DesertResources
             _=> set resources = ForestResources
 
         var totalWeight: int = 0
@@ -95,7 +112,8 @@ Tiles := class(creative_device):
             Position := vector3{X := 0.0, Y := 0.0, Z := 0.0},
             Parent := Self
         }
-        newTile.Init(TileArr, ?isActiveState := true)  # Initialize as active
+        newTile.Init(TileArr)  # Initialize as active
+        newTile.Activate()
         set TileArr += array{newTile}
         set firstTile = option{newTile}
         
@@ -105,6 +123,19 @@ Tiles := class(creative_device):
             if (neighborTile.isActive = false):
                 neighborTile.Activate()
 
+        Print("TileArr: {TileArr.Length}")
+        var ActiveTiles:int = 0
+        for (tile : TileArr):
+            if(tile.isActive = true):
+                set ActiveTiles += 1
+        Print("Active Tiles: {ActiveTiles}")
+
+        for(I:=0..6):
+            if(tile:=TileArr[I]):
+                if(tile.isActive = false):
+                    Print("Late Activating Tile")
+                    tile.Activate()
+               
         for (move : PremadeTiles):
             Props := GetPropsByType(move(2))
             PremadeTile := Tile{
@@ -116,6 +147,13 @@ Tiles := class(creative_device):
             PremadeTile.InitSpecial(vector3{X := 0.0, Y := 0.0, Z := 0.0}, move)
             set TileArr += array{PremadeTile}
         
+        # for(tile:TileArr):
+        #     for(ComapringTile:TileArr):
+        #         if(not tile.UUID = ComapringTile.UUID):
+        #             if(tile.Position.X = ComapringTile.Position.X and tile.Position.Y = ComapringTile.Position.Y):
+        #                 Print("Removing Tile")
+        #                 RemoveElementFromTileArr(ComapringTile)
+                    
         spawn. ResourceSpawnLoop()
         for (Player : GetPlayspace().GetPlayers()):
            spawn. PlayerLoop(Player)
@@ -123,6 +161,16 @@ Tiles := class(creative_device):
         Sleep(1.0)
         GetPlayspace().PlayerAddedEvent().Subscribe(PlayerJoin)
         
+    RemoveElementFromTileArr(tile:Tile):void=
+        if(tile.InActiveProp.IsValid[]):
+            tile.InActiveProp.Dispose()
+        if(tile.Prop.IsValid[]):
+            tile.Prop.Dispose()
+        var NewArr:[]Tile = array{}
+        for(Ltile:TileArr):
+            if(not tile.UUID = Ltile.UUID):
+                set NewArr += array{tile}
+        set TileArr = NewArr
 
     PlayerLoop(Player:player)<suspends>:void=
         if(set PlayerStillInGame[Player] = true){}
@@ -162,7 +210,7 @@ Tiles := class(creative_device):
 
     GetPropsByType(Type:string)<transacts>: tuple(creative_prop_asset,creative_prop_asset)=
         case(Type):
-            "Desert" =>return (TestActive, TestInActive)
+            "Desert" =>return (SandActive, SandInActive)
             "Test" =>return (TestActive, TestInActive)
             "Forest" => return (ActiveTile, InActiveTile)
             _=>return (ActiveTile, InActiveTile)
@@ -189,7 +237,7 @@ Tiles := class(creative_device):
                 break
             if(tile:=CurrentPlayerTile[Player]):
                 if(tile.isActive= false):
-                    tile.Activate()
+                    tile.PutResourcesOnTile(Player)
                 
             Sleep(0.740)
 
