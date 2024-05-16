@@ -5,7 +5,7 @@ using { /Fortnite.com/Characters }
 using { /Verse.org/Simulation }
 using { /Fortnite.com/Devices/CreativeAnimation }
 using { /Verse.org/Random }
-
+using { /Verse.org/Assets }
 PlayerClass:=class:
     Player:player
     var Wood:PersistableWood = PersistableWood{}

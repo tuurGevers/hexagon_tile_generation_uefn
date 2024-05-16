@@ -249,81 +249,30 @@ ResourceDisplay:=class:
     Main:Tiles
     tile:Tile
     resource:ResourceRequired
-    var CurrentProps: []creative_prop = array{}
-    var TargetProps: []creative_prop = array{}
-    var SlashProp: creative_prop = creative_prop{}
-
+    var CurrentProp: creative_prop = creative_prop{}
+    var TargetProp: creative_prop = creative_prop{}
     Init(): void =
-        set SlashProp = SpawnTarget(vector3{X:=tile.Position.X, Y:=tile.Position.Y, Z:=tile.Position.Z+800.0}, Main.MaterialAsset)
-        SlashProp.SetMaterial(slash_mat)
-
-        Print("spawned slash prop")
-        # Display current and target resource amounts
-        Self.DisplayResourceAmount(resource.CurrentAmount, true)
-        Self.DisplayResourceAmount(resource.TargetAmount, false)
-        
-    DisplayResourceAmount(Number: int, isCurrent: logic): void =
-        var props: []creative_prop = array{}
-        Materials := Self.GetMaterialsFromNumber(Number)
-        Print("Materials")
-        var basePosition: vector3 = vector3{}
-
-        if (isCurrent=true):
-           set basePosition = vector3{X := tile.Position.X, Y := tile.Position.Y - 200.0, Z := tile.Position.Z + 800.0}  # Position to the left of the slash
-        else:
-           set basePosition = vector3{X := tile.Position.X , Y := tile.Position.Y+ 200.0, Z := tile.Position.Z + 800.0}  # Position to the right of the slash
-
-        for (i-> Material: Materials):
-            position := vector3{X := basePosition.X , Y := basePosition.Y+ (i * 100.0), Z := basePosition.Z}
-            prop := SpawnTarget(position, Main.MaterialAsset)
-            prop.SetMaterial(Material)
-            set props += array{prop}
-            Print("spawned material prop")
-
-        if (isCurrent=true):
-            set CurrentProps = props
-        else:
-            set TargetProps = props
-
-    ClearProps(props: []creative_prop): void =
-        for (prop: props):
-            prop.Dispose()
-
-    Remove(): void =
-        Self.ClearProps(CurrentProps)
-        Self.ClearProps(TargetProps)
-        if (SlashProp.IsValid[]):
-            SlashProp.Dispose()
+        set CurrentProp = SpawnTarget(vector3{X:=tile.Position.X, Y:=tile.Position.Y-350.0, Z:=tile.Position.Z+400.0}, Main.CounterProp, ?Scale:=vector3{X:=0.5, Y:=0.5, Z:=0.5})
+        set TargetProp = SpawnTarget(vector3{X:=tile.Position.X, Y:=tile.Position.Y+350.0, Z:=tile.Position.Z+400.0}, Main.CounterProp, ?Scale:=vector3{X:=0.5, Y:=0.5, Z:=0.5})
 
     Update(): void =
-        Self.ClearProps(CurrentProps)
-        Self.DisplayResourceAmount(resource.CurrentAmount, true)
+        if(CurrentProp.TeleportTo[
+            transform{
+                Translation:=vector3{X:=tile.Position.X, Y:=tile.Position.Y-200.0, Z:=tile.Position.Z+800.0},
+                Rotation:=IdentityRotation(),
+                Scale:=vector3{X:=0.5, Y:=0.5, Z:=0.1+resource.CurrentAmount*1.0}}
+        ]){}
+        if(TargetProp.TeleportTo[
+            transform{
+                Translation:=vector3{X:=tile.Position.X, Y:=tile.Position.Y+200.0, Z:=tile.Position.Z+800.0},
+                Rotation:=IdentityRotation(),
+                Scale:=vector3{X:=0.5, Y:=0.5, Z:=0.1+resource.TargetAmount*1.0}
+            }
+            
+        ]){}
         if (resource.IsCompleted = true):
-            Self.Remove()
+            CurrentProp.Dispose()
+            TargetProp.Dispose()
     
 
-    GetMaterialsFromNumber(Number:int): []material =
-        var NumberString:[]string = "{Number}".Split("")
-        Print("NumberString")
-        for(NS: NumberString):
-            Print(NS)
-
-        var Materials: []material = array{}
-        for (Char : NumberString):
-            Material:= GetMaterialFromChar(Char)
-            set Materials += array{Material}
-        return Materials
-
-    GetMaterialFromChar(Char: string): material =
-        case(Char):
-            "0"=> return zero_mat
-            "1"=> return one_mat
-            "2"=> return two_mat
-            "3"=> return three_mat
-            "4"=> return four_mat
-            "5"=> return five_mat
-            "6"=> return six_mat
-            "7"=> return seven_mat
-            "8"=> return eight_mat
-            "9"=> return nine_mat
-            _=> return zero_mat
+    

@@ -38,8 +38,10 @@ Tiles := class(creative_device):
     @editable TreeBreakNs: creative_prop_asset = DefaultCreativePropAsset
     @editable BigTreeBreakNs: creative_prop_asset = DefaultCreativePropAsset
     @editable StoneBreakNs: creative_prop_asset = DefaultCreativePropAsset
+    @editable CounterProp:creative_prop_asset= DefaultCreativePropAsset
 
     @editable MaterialAsset : creative_prop_asset = DefaultCreativePropAsset
+
     
     basePosition:vector3= vector3{X:=0.0, Y:=0.0, Z:=0.0}
 
@@ -163,6 +165,7 @@ Tiles := class(creative_device):
         Sleep(1.0)
         GetPlayspace().PlayerAddedEvent().Subscribe(PlayerJoin)
         
+    
     RemoveElementFromTileArr(tile:Tile):void=
         if(tile.InActiveProp.IsValid[]):
             tile.InActiveProp.Dispose()
