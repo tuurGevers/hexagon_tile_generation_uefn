@@ -4,7 +4,10 @@ using { /UnrealEngine.com/Temporary/SpatialMath }
 using { /Fortnite.com/Characters }
 using { /Verse.org/Simulation }
 using { /Fortnite.com/Devices/CreativeAnimation }
+using { /Verse.org/Assets }
 using {mapProps}
+using{numbers}
+
 Tile := class:
     var TilePropAsset: creative_prop_asset
     var isActive: logic = false
@@ -55,8 +58,9 @@ Tile := class:
     
 
 
-    Init(TileArray: []Tile, ?isActiveState: logic = false, ?InitType:string="Auto"): void =
-        set ResourcesRequired = array{ResourceRequired{Type:= "Wood", TargetAmount:= 50}}
+    Init(TileArray: []Tile, ?isActiveState: logic = false, ?InitType:string="Auto", ?HasResources:logic=true): void =
+        set ResourcesRequired = array{ResourceRequired{Type:= "Wood", TargetAmount:= 50, tile:=Self, Main:=Parent}}
+        
         set UUID = GenerateUUID()
         Self.CalculateNeighborPositions()
         set isActive = isActiveState
@@ -94,16 +98,21 @@ Tile := class:
             var NotCompleted:int=0
             var DecreaseAmount:int=10
             for (resource: ResourcesRequired):
+                if(resource.IsActive = false):
+                    resource.Init()
+
                 case(resource.Type):
                     "Wood"=>{
-                        if(V:=Persistance.Wood.GetValue(), V<10):
-                            set DecreaseAmount=V
-                        if(Persistance.Wood.DecreasePositiveValue(DecreaseAmount)=true):
-                            Print("Wood added new value {Persistance.Wood.GetValue()}")
-                            resource.AddResource(DecreaseAmount)
+                        V:=Persistance.Wood.GetValue()
+                        if(V>0):
+                            if(V<10):
+                                set DecreaseAmount=V      
+                            if(Persistance.Wood.DecreasePositiveValue(DecreaseAmount)=true):
+                                Print("Wood added new value {Persistance.Wood.GetValue()}")
+                                resource.AddResource(DecreaseAmount)
 
-                        else:
-                            Print("Not enough wood")
+                            else:
+                                Print("Not enough wood")
                         
                     }
                     _=>
@@ -152,7 +161,7 @@ Tile := class:
    
   
 
-    FindExistingOrInitialize( position: vector3, ?TileType:string="Auto"): tuple(Tile,logic) =
+    FindExistingOrInitialize( position: vector3, ?TileType:string="Auto", ?IsInitial:logic=false): tuple(Tile,logic) =
         for (tile : Parent.TileArr):
             if (tile.Position.ApproxEquals(position, 10.0) = true):
                 return (tile,false)
@@ -160,12 +169,12 @@ Tile := class:
             AutoType:= Parent.DetermineZoneType(position)
             Props:= Parent.GetPropsByType(AutoType)
             var newTile:Tile = Tile{ InactiveTileAsset := Props(1),TilePropAsset:=Props(0), Position:=position, Parent:=Parent}
-            newTile.Init(Parent.TileArr)  # Initialize as inactive
+            newTile.Init(Parent.TileArr, ?HasResources:=IsInitial)  # Initialize as inactive
             return (newTile, true)
         else:
             Props:= Parent.GetPropsByType(TileType)
             var newTile:Tile = Tile{ InactiveTileAsset := Props(1),TilePropAsset:=Props(0), Position:=position, Parent:=Parent}
-            newTile.Init(Parent.TileArr)  # Initialize as inactive
+            newTile.Init(Parent.TileArr, ?HasResources:=IsInitial)  # Initialize as inactive
             return (newTile, true)
 
        
@@ -216,12 +225,105 @@ ResourceRequired:=class:
     var CurrentAmount: int = 0
     TargetAmount: int
     var IsCompleted: logic = false
+    var Display: ?ResourceDisplay = false 
+    tile:Tile
+    Main:Tiles
+    var IsActive:logic=false
 
+    Init():void=
+        set IsActive = true
+        NewDisplay:=ResourceDisplay{Main:=Main, tile:=tile, resource:=Self}
+        set Display = option{NewDisplay}
+        NewDisplay.Init()
 
     AddResource(Amount: int): void =
         set CurrentAmount = CurrentAmount + Amount
         if (CurrentAmount >= TargetAmount):
             set IsCompleted = true
             set CurrentAmount = TargetAmount
+        if(CurrentDisplay:= Display?):
+            CurrentDisplay.Update()
 
     
+ResourceDisplay:=class:
+    Main:Tiles
+    tile:Tile
+    resource:ResourceRequired
+    var CurrentProps: []creative_prop = array{}
+    var TargetProps: []creative_prop = array{}
+    var SlashProp: creative_prop = creative_prop{}
+
+    Init(): void =
+        set SlashProp = SpawnTarget(vector3{X:=tile.Position.X, Y:=tile.Position.Y, Z:=tile.Position.Z+800.0}, Main.MaterialAsset)
+        SlashProp.SetMaterial(slash_mat)
+
+        Print("spawned slash prop")
+        # Display current and target resource amounts
+        Self.DisplayResourceAmount(resource.CurrentAmount, true)
+        Self.DisplayResourceAmount(resource.TargetAmount, false)
+        
+    DisplayResourceAmount(Number: int, isCurrent: logic): void =
+        var props: []creative_prop = array{}
+        Materials := Self.GetMaterialsFromNumber(Number)
+        Print("Materials")
+        var basePosition: vector3 = vector3{}
+
+        if (isCurrent=true):
+           set basePosition = vector3{X := tile.Position.X, Y := tile.Position.Y - 200.0, Z := tile.Position.Z + 800.0}  # Position to the left of the slash
+        else:
+           set basePosition = vector3{X := tile.Position.X , Y := tile.Position.Y+ 200.0, Z := tile.Position.Z + 800.0}  # Position to the right of the slash
+
+        for (i-> Material: Materials):
+            position := vector3{X := basePosition.X , Y := basePosition.Y+ (i * 100.0), Z := basePosition.Z}
+            prop := SpawnTarget(position, Main.MaterialAsset)
+            prop.SetMaterial(Material)
+            set props += array{prop}
+            Print("spawned material prop")
+
+        if (isCurrent=true):
+            set CurrentProps = props
+        else:
+            set TargetProps = props
+
+    ClearProps(props: []creative_prop): void =
+        for (prop: props):
+            prop.Dispose()
+
+    Remove(): void =
+        Self.ClearProps(CurrentProps)
+        Self.ClearProps(TargetProps)
+        if (SlashProp.IsValid[]):
+            SlashProp.Dispose()
+
+    Update(): void =
+        Self.ClearProps(CurrentProps)
+        Self.DisplayResourceAmount(resource.CurrentAmount, true)
+        if (resource.IsCompleted = true):
+            Self.Remove()
+    
+
+    GetMaterialsFromNumber(Number:int): []material =
+        var NumberString:[]string = "{Number}".Split("")
+        Print("NumberString")
+        for(NS: NumberString):
+            Print(NS)
+
+        var Materials: []material = array{}
+        for (Char : NumberString):
+            Material:= GetMaterialFromChar(Char)
+            set Materials += array{Material}
+        return Materials
+
+    GetMaterialFromChar(Char: string): material =
+        case(Char):
+            "0"=> return zero_mat
+            "1"=> return one_mat
+            "2"=> return two_mat
+            "3"=> return three_mat
+            "4"=> return four_mat
+            "5"=> return five_mat
+            "6"=> return six_mat
+            "7"=> return seven_mat
+            "8"=> return eight_mat
+            "9"=> return nine_mat
+            _=> return zero_mat

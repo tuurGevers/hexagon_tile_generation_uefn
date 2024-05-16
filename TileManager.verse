@@ -38,6 +38,8 @@ Tiles := class(creative_device):
     @editable TreeBreakNs: creative_prop_asset = DefaultCreativePropAsset
     @editable BigTreeBreakNs: creative_prop_asset = DefaultCreativePropAsset
     @editable StoneBreakNs: creative_prop_asset = DefaultCreativePropAsset
+
+    @editable MaterialAsset : creative_prop_asset = DefaultCreativePropAsset
     
     basePosition:vector3= vector3{X:=0.0, Y:=0.0, Z:=0.0}
 
@@ -112,14 +114,14 @@ Tiles := class(creative_device):
             Position := vector3{X := 0.0, Y := 0.0, Z := 0.0},
             Parent := Self
         }
-        newTile.Init(TileArr)  # Initialize as active
+        newTile.Init(TileArr, ?HasResources:=false)  # Initialize as active
         newTile.Activate()
         set TileArr += array{newTile}
         set firstTile = option{newTile}
         
         
         for (neighborPos : newTile.neighborPositions):
-            var neighborTile: Tile = newTile.FindExistingOrInitialize(neighborPos)(0)
+            var neighborTile: Tile = newTile.FindExistingOrInitialize(neighborPos, ?IsInitial:=true)(0)
             if (neighborTile.isActive = false):
                 neighborTile.Activate()
 
@@ -383,17 +385,3 @@ Tiles := class(creative_device):
 
                 Sleep(0.1)
 
-                            
-                        
-                
-
-                
-            
-            
-
-
-    
-
-    
-            
-        

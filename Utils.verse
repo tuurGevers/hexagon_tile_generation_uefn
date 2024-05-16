@@ -62,6 +62,7 @@ CalculatePointNonPlayer(Transform:transform, DistanceAmp:float, Direction:string
     return ReturnString
 
 
+
 # Filters an array of elements based on a specified element to filter
 (Arr:[]T).FilterElement(ElementToFilter: T where T: subtype(comparable)): []T =
     var ResultList: []T = array{}
@@ -389,30 +390,50 @@ ClearHud(Player:player):void=
 # String Functions #
 
 # Splits a string into an array of substrings based on a delimiter
-(S:string).Split(Del:string)<transacts>:[]string=
-    var SplitString : []string = array{}
+# Splits a string into an array of substrings based on a delimiter
+(S: string).Split(Del: string) <transacts>: []string =
+    if (Del = ""):
+        return S.SplitByCharacter()
+
+    var SplitString: []string = array{}
     var CurrentSubString: string = ""
-    var i:int = 0
+    var i: int = 0
+
     loop:
-        if(i>= S.Length):
+        if (i >= S.Length):
             break
 
-        if(S.Slice[i, i+Del.Length] = Del):
-            if(not CurrentSubString = ""):
+        if (S.Slice[i, i + Del.Length] = Del):
+            if (not CurrentSubString = ""):
                 set SplitString += array{CurrentSubString}
                 set CurrentSubString = ""
-            set i +=Del.Length
+            set i += Del.Length
 
         else:
-            if(CurrentChar:= S[i]):
+            if (CurrentChar := S[i]):
                 set CurrentSubString = "{CurrentSubString}{CurrentChar}"
-                set i +=1
+                set i += 1
 
-    if(not CurrentSubString = ""):
+    if (not CurrentSubString = ""):
         set SplitString += array{CurrentSubString}
         set CurrentSubString = ""
 
     return SplitString
+
+# Helper function to split a string into an array of characters
+(S: string).SplitByCharacter() <transacts>: []string =
+    var CharacterArray: []string = array{}
+    var i: int = 0
+
+    loop:
+        if (i >= S.Length):
+            break
+
+        if (CurrentChar := S[i]):
+            set CharacterArray += array{"{CurrentChar}"}
+            set i += 1
+
+    return CharacterArray
 
 # Converts a character to an integer
 (C:char).ToInt()<transacts>:int=
