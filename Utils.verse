@@ -330,6 +330,14 @@ CalculatePoint( Player:agent,DistanceAmp:float, Direction:string, ?ExtraYaw:floa
     else:
         return Floats
 
+(V:vector3).Compare(V2:vector3)<transacts>:int=
+    if(V.X<V2.X):
+        return 1
+    else if(V.X>V2.X):
+        return -1
+    else:
+        0
+
 # Creates a box defined by two transforms, width, and height
 CreateBox(T1:transform, T2:transform, W:float, H:float): tuple(vector3, vector3) = 
     var V1 :vector3= CalculatePointNonPlayer(T1, W/2.0, "Left")

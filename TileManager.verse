@@ -110,11 +110,26 @@ Tiles := class(creative_device):
         set PremadeTiles = array{
             (4,4,"Test",RecordPlayerAsset)
         }
+        Print("starting")
+        Sleep(1.0)
+        for (Player : GetPlayspace().GetPlayers()):
+            Print("Player:")
+            InitPlayer(Player)
+            spawn. PlayerLoop(Player)
+        spawn. ResourceSpawnLoop()
+
+
+        Sleep(1.0)
+        GetPlayspace().PlayerAddedEvent().Subscribe(PlayerJoin)
+       
+    InitTiles(Player:player)<suspends>:void=
         var newTile: Tile = Tile{
             InactiveTileAsset := InActiveTile,
             TilePropAsset := ActiveTile,
             Position := vector3{X := 0.0, Y := 0.0, Z := 0.0},
-            Parent := Self
+            Parent := Self,
+            Player:=Player
+
         }
         newTile.Init(TileArr, ?HasResources:=false)  # Initialize as active
         newTile.Activate()
@@ -146,25 +161,12 @@ Tiles := class(creative_device):
                 InactiveTileAsset := Props(1),
                 TilePropAsset := Props(0),
                 Position := vector3{X := 0.0, Y := 0.0, Z := 0.0},
-                Parent := Self
+                Parent := Self,
+                Player:=Player
             }
             PremadeTile.InitSpecial(vector3{X := 0.0, Y := 0.0, Z := 0.0}, move)
             set TileArr += array{PremadeTile}
-        
-        # for(tile:TileArr):
-        #     for(ComapringTile:TileArr):
-        #         if(not tile.UUID = ComapringTile.UUID):
-        #             if(tile.Position.X = ComapringTile.Position.X and tile.Position.Y = ComapringTile.Position.Y):
-        #                 Print("Removing Tile")
-        #                 RemoveElementFromTileArr(ComapringTile)
-                    
-        spawn. ResourceSpawnLoop()
-        for (Player : GetPlayspace().GetPlayers()):
-           spawn. PlayerLoop(Player)
 
-        Sleep(1.0)
-        GetPlayspace().PlayerAddedEvent().Subscribe(PlayerJoin)
-        
     
     RemoveElementFromTileArr(tile:Tile):void=
         if(tile.InActiveProp.IsValid[]):
@@ -177,18 +179,23 @@ Tiles := class(creative_device):
                 set NewArr += array{tile}
         set TileArr = NewArr
 
-    PlayerLoop(Player:player)<suspends>:void=
+    InitPlayer(Player:player)<suspends>:void=
+        NewClass:=PlayerClass{Player:=Player}
+        NewClass.Init(Self)
+        if(set PlayerPersistanceLayer[Player]=NewClass){}
         if(set PlayerStillInGame[Player] = true){}
         if(set CurrentPlayerTile[Player] = TileArr[0]){}
-        NewClass:=PlayerClass{Player:=Player}
-        NewClass.Init()
-        if(set PlayerPersistanceLayer[Player]=NewClass){}
         NewUI:=Health_UI{Main:=Self}
         if(set PlayerHealthUI[Player]= NewUI){}
         DropUI:=Drop_UI{}
         DropUI.ShowUIToPlayer(Player)
         if(set PlayerDropUI[Player]=DropUI){}
         spawn. DelayedActivate(Player)
+
+    PlayerLoop(Player:player)<suspends>:void=
+        Print("PlayerLoop")
+      
+        
         loop:
             if( PlayerStillInGame[Player] = false):
                 break
@@ -242,7 +249,7 @@ Tiles := class(creative_device):
                 break
             if(tile:=CurrentPlayerTile[Player]):
                 if(tile.isActive= false):
-                    tile.PutResourcesOnTile(Player)
+                    tile.PutResourcesOnTile()
                 
             Sleep(0.740)
 

@@ -24,7 +24,7 @@ Tile := class:
     var pResource:?Resource = false
     var UUID:string = ""
     var ResourcesRequired: []ResourceRequired = array{}
-
+    Player:player
     Parent:Tiles
 
     CreateOrRespawnResource(): void =
@@ -58,7 +58,7 @@ Tile := class:
     
 
 
-    Init(TileArray: []Tile, ?isActiveState: logic = false, ?InitType:string="Auto", ?HasResources:logic=true): void =
+    Init(TileArray: []Tile,  ?isActiveState: logic = false, ?InitType:string="Auto", ?HasResources:logic=true): void =
         set ResourcesRequired = array{ResourceRequired{Type:= "Wood", TargetAmount:= 50, tile:=Self, Main:=Parent}}
         
         set UUID = GenerateUUID()
@@ -93,7 +93,7 @@ Tile := class:
             spawn. Self.Activate()
 
 
-    PutResourcesOnTile(Player:agent): void =
+    PutResourcesOnTile(): void =
         if(Persistance:=Parent.PlayerPersistanceLayer[Player]):
             var NotCompleted:int=0
             var DecreaseAmount:int=10
@@ -157,6 +157,8 @@ Tile := class:
             if(UPDated(1) = true):
                 set Parent.TileArr += array{neighbor}
             set Neighbors += array{neighbor}
+        if(PersistanceLayer:= Parent.PlayerPersistanceLayer[Player], TileManager:=PersistanceLayer.persistableTile?):
+            TileManager.AddPersistantTile(Self)
 
    
   
@@ -168,12 +170,12 @@ Tile := class:
         if(TileType="Auto"):
             AutoType:= Parent.DetermineZoneType(position)
             Props:= Parent.GetPropsByType(AutoType)
-            var newTile:Tile = Tile{ InactiveTileAsset := Props(1),TilePropAsset:=Props(0), Position:=position, Parent:=Parent}
+            var newTile:Tile = Tile{ InactiveTileAsset := Props(1),TilePropAsset:=Props(0), Position:=position, Parent:=Parent, Player:=Player}
             newTile.Init(Parent.TileArr, ?HasResources:=IsInitial)  # Initialize as inactive
             return (newTile, true)
         else:
             Props:= Parent.GetPropsByType(TileType)
-            var newTile:Tile = Tile{ InactiveTileAsset := Props(1),TilePropAsset:=Props(0), Position:=position, Parent:=Parent}
+            var newTile:Tile = Tile{ InactiveTileAsset := Props(1),TilePropAsset:=Props(0), Position:=position, Parent:=Parent, Player:=Player}
             newTile.Init(Parent.TileArr, ?HasResources:=IsInitial)  # Initialize as inactive
             return (newTile, true)
 
@@ -250,29 +252,19 @@ ResourceDisplay:=class:
     tile:Tile
     resource:ResourceRequired
     var CurrentProp: creative_prop = creative_prop{}
-    var TargetProp: creative_prop = creative_prop{}
     Init(): void =
         set CurrentProp = SpawnTarget(vector3{X:=tile.Position.X, Y:=tile.Position.Y-350.0, Z:=tile.Position.Z+400.0}, Main.CounterProp, ?Scale:=vector3{X:=0.5, Y:=0.5, Z:=0.5})
-        set TargetProp = SpawnTarget(vector3{X:=tile.Position.X, Y:=tile.Position.Y+350.0, Z:=tile.Position.Z+400.0}, Main.CounterProp, ?Scale:=vector3{X:=0.5, Y:=0.5, Z:=0.5})
 
     Update(): void =
         if(CurrentProp.TeleportTo[
             transform{
                 Translation:=vector3{X:=tile.Position.X, Y:=tile.Position.Y-200.0, Z:=tile.Position.Z+800.0},
                 Rotation:=IdentityRotation(),
-                Scale:=vector3{X:=0.5, Y:=0.5, Z:=0.1+resource.CurrentAmount*1.0}}
+                Scale:=vector3{X:=0.5, Y:=0.1+resource.TargetAmount*1.0, Z:=0.1+resource.CurrentAmount*1.0}}
         ]){}
-        if(TargetProp.TeleportTo[
-            transform{
-                Translation:=vector3{X:=tile.Position.X, Y:=tile.Position.Y+200.0, Z:=tile.Position.Z+800.0},
-                Rotation:=IdentityRotation(),
-                Scale:=vector3{X:=0.5, Y:=0.5, Z:=0.1+resource.TargetAmount*1.0}
-            }
-            
-        ]){}
+        
         if (resource.IsCompleted = true):
             CurrentProp.Dispose()
-            TargetProp.Dispose()
     
 
     
